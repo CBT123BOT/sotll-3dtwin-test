@@ -4,8 +4,8 @@
 // =====================================================================
 const SETTINGS = {
   TITLE_TEXT: 'CRYPTO BROS',
-  SUBTITLE_TEXT: 'Streets of the Lost Ledger',
-  EDITION_TEXT: '3D TwiN  •  FIRST PREVIEW',
+  SUBTITLE_TEXT: 'Streets of the Lost Ledger 2',
+  EDITION_TEXT: '3D TwiN  •  PREVIEW v2',
   TITLE_COLOR: '#ffd34d',
   START_LIVES: 3,
   MAX_HP: 28,            // Mega Man style: health is 28 little bars
@@ -14,8 +14,17 @@ const SETTINGS = {
   JUMP_SPEED: 560,
   GRAVITY: 1400,
   KICK_DAMAGE: 3,        // optional melee kick
-  ROLL_SPEED: 380,       // roll (dodge) dash speed
-  ROLL_MS: 320,          // how long a roll lasts (you can't be hurt while rolling)
+  ROLL_SPEED: 400,       // DASH speed (Mega Man X style). Jump during a dash = dash-jump (keeps the speed in the air)
+  ROLL_MS: 300,          // how long a dash lasts
+  DASH_IFRAMES_MS: 180,  // the first part of a dash can't be hurt (a dodge)
+  WALL_SLIDE_SPEED: 70,  // hold toward a wall in the air to slide down slowly
+  WALL_JUMP_X: 260,      // jump off a wall: sideways push
+  CHARGE_MS: 650,        // hold SHOOT this long, let go = charged shot
+  CHARGE_DMG: 4,         // charged shot damage = this x the blaster's normal damage
+  ARMOR_DAMAGE: 0.75,    // Ledger Armor: you take this much damage
+  HEART_TANK_HP: 4,      // Heart Vault: + this much max health
+  SUBTANK_MAX: 14,       // Cold Wallet (stored health) stores spare health; auto-used when health gets low
+  SUBTANK_AUTO_AT: 5,    // ...at or below this health
   HURT_INVULN_MS: 1700,  // blink time after getting hit (can't be hit again)
   FALL_DAMAGE: 4,        // falling in a gap costs this much health, then you respawn at the last ledge
   MUSIC_ON: true
@@ -51,7 +60,11 @@ const PICKUPS = {
   silver:    { hp: 14, energy: 14, score: 500,  color: 0xd8dde3, label: 'SILVER NICKEL' },
   gold:      { hp: 6,  energy: 6,  score: 1000, color: 0xffd700, label: 'GOLD NICKEL — SPECIAL!', glowMs: 9000 },
   xrp:       { hp: 0,  energy: 10, score: 50,   color: 0x23292f, label: 'XRP DROP +ENERGY' },
-  trustline: { life: 1, score: 500, color: 0x2aa8ff, label: 'TRUSTLINE 1-UP' }
+  trustline: { life: 1, score: 500, color: 0x2aa8ff, label: 'TRUSTLINE 1-UP' },
+  // hidden upgrades (Mega Man X style) — one of each in the intro stage
+  heart:     { upgrade: 'heart',   score: 1000, color: 0xff3d8b, label: 'HEART VAULT! +MAX HEALTH' },
+  subtank:   { upgrade: 'subtank', score: 1000, color: 0x3aa0ff, label: 'COLD WALLET! STORES HEALTH' },
+  armor:     { upgrade: 'armor',   score: 1500, color: 0x7fe0ff, label: 'LEDGER ARMOR! -25% DAMAGE' }
 };
 // Drop chances when an enemy is beaten (out of 1.0)
 const DROP_TABLE = [['gold', 0.05], ['silver', 0.12], ['copper', 0.25], ['xrp', 0.25]];
@@ -79,6 +92,14 @@ const STAGES = [
     enemies: [['scambot', 450], ['phish', 620], ['scambot', 1000], ['phish', 1150], ['scambot', 1450],
               ['phish', 1700], ['scambot', 1900], ['scambot', 2120], ['phish', 2250], ['scambot', 2500], ['phish', 2650]],
     items:   [['xrp', 1290, 180], ['trustline', 1697, 200], ['copper', 2590, 170]],
+    // hanging pillars you climb with wall-jumps: [x, width, topY, bottomY] (you can walk under them)
+    pillars: [[1150, 50, 110, 216], [2690, 44, 130, 206]],
+    // little ledges hidden down inside gaps: [x, width, topY]
+    ledges:  [[738, 44, 352]],
+    // hidden upgrades: [kind, x, y]
+    secrets: [['armor', 760, 334],          // down in the first gap: drop in, then wall-jump back out
+              ['heart', 1175, 100],         // on top of the tall pillar (wall-jump up its side)
+              ['subtank', 2712, 120]],      // on top of the last pillar before the boss (dash-jump off the girder)
     checkpoints: [1800],
     arenaX: 2860,
     boss: 'locz_don'
@@ -97,6 +118,19 @@ const SELECT_GRID = [
   { leader: 'blue',    open: false },
   { leader: 'purple',  open: false },
   { leader: 'diamond', open: false }
+];
+
+// MEGA MAN X structure: intro stage (LOCz Rooftops + LOCz Don) -> this 8-slot boss select.
+// 5 team leaders (rival versions) + 3 gang bosses. Each gives its weapon. Names marked PLACEHOLDER are for Rusty to name.
+const BOSS_SELECT = [
+  { name: 'GORDO HOLDSWORTH', team: "Sho'nuff Red",  head: 'red',     weapon: 'BIG BOOT STOMP',  open: false },
+  { name: 'D2 BOSS',          team: 'PLACEHOLDER',   head: null,      weapon: 'PLACEHOLDER',     open: false, color: 0xff8a00 },
+  { name: 'BRUNO WAGMI',      team: 'Ripple Drops',  head: 'blue',    weapon: 'LIGHTNING RAIN',  open: false },
+  { name: 'BENJAMIN BLUNT',   team: 'Purple Kush',   head: 'purple',  weapon: 'KUSH STORM',      open: false },
+  { name: 'D3 BOSS',          team: 'PLACEHOLDER',   head: null,      weapon: 'PLACEHOLDER',     open: false, color: 0x00d0a0 },
+  { name: 'BUTCH FANCYPANTS', team: 'Diamond Hands', head: 'diamond', weapon: 'DIAMOND BURST',   open: false },
+  { name: 'FRANKIE PUMPKINS', team: 'Leroy Gold',    head: 'gold',    weapon: 'GOLD FIST',       open: false },
+  { name: 'FINAL 10% BOSS',   team: 'PLACEHOLDER',   head: null,      weapon: 'PLACEHOLDER',     open: false, color: 0xff3040 }
 ];
 
 // Story intro: the same "Lost Ledger" story as the Two-Bit Beta (STORY.md / LORE.md canon)
