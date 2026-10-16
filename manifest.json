@@ -1,0 +1,17 @@
+{
+  "name": "CRYPTO BROS 3D TwiN Preview",
+  "short_name": "CB 3D TwiN",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#000000",
+  "theme_color": "#1a1030",
+  "icons": [
+    {
+      "src": "assets/icon_192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}
